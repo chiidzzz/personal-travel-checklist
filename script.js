@@ -1,4 +1,24 @@
-// Stable hash so saved states persist even if you reorder items
+function setSeason(season) {
+  document.body.classList.remove("winter-mode", "summer-mode");
+  document.body.classList.add(season + "-mode");
+
+  document
+    .getElementById("btn-winter")
+    .classList.toggle("active", season === "winter");
+  document
+    .getElementById("btn-summer")
+    .classList.toggle("active", season === "summer");
+  localStorage.setItem("pref_season", season);
+}
+
+function setMilitary(isOn) {
+  document.body.classList.toggle("military-on", isOn);
+  document.getElementById("btn-mil-on").classList.toggle("active", isOn);
+  document.getElementById("btn-mil-off").classList.toggle("active", !isOn);
+  localStorage.setItem("pref_military", isOn);
+}
+
+// Your original Logic for persistence
 function hashLabel(text) {
   let h = 2166136261 >>> 0;
   for (let i = 0; i < text.length; i++) {
@@ -17,56 +37,33 @@ function storageKeyForCheckbox(checkbox, fallbackIndex) {
   return txt ? "chk_" + hashLabel(txt) : "chk_idx_" + fallbackIndex;
 }
 
-/* Ensure the label has a dedicated span for text so the CSS grid
-   can indent wrapped lines cleanly without editing your HTML items manually. */
-function normalizeLabelsForIndent() {
-  document.querySelectorAll(".item label").forEach((label) => {
-    // If there is already a span, skip
-    if (label.querySelector(".label-text")) return;
-
-    // Move all non-input nodes into a new span
-    const textSpan = document.createElement("span");
-    textSpan.className = "label-text";
-
-    const nodesToMove = [];
-    label.childNodes.forEach((n) => {
-      if (!(n.nodeType === 1 && n.tagName === "INPUT")) {
-        nodesToMove.push(n);
-      }
-    });
-    nodesToMove.forEach((n) => textSpan.appendChild(n));
-    label.appendChild(textSpan);
-  });
-}
-
 function applySavedState() {
   const boxes = document.querySelectorAll('input[type="checkbox"]');
   boxes.forEach((box, i) => {
     const key = storageKeyForCheckbox(box, i);
     const saved = localStorage.getItem(key);
-    const isChecked = saved === "true";
-    box.checked = isChecked;
-    box.closest(".item")?.classList.toggle("dimmed", isChecked);
-
+    if (saved === "true") {
+      box.checked = true;
+      box.closest(".item")?.classList.add("dimmed");
+    }
     box.addEventListener("change", function () {
-      const checked = this.checked;
-      localStorage.setItem(key, checked);
-      this.closest(".item")?.classList.toggle("dimmed", checked);
+      localStorage.setItem(key, this.checked);
+      this.closest(".item")?.classList.toggle("dimmed", this.checked);
     });
   });
+
+  // Restore Toggle States
+  const savedSeason = localStorage.getItem("pref_season") || "winter";
+  const savedMil = localStorage.getItem("pref_military") === "true";
+  setSeason(savedSeason);
+  setMilitary(savedMil);
 }
 
 function clearChecklist() {
-  const boxes = document.querySelectorAll('input[type="checkbox"]');
-  boxes.forEach((box, i) => {
-    const key = storageKeyForCheckbox(box, i);
-    box.checked = false;
-    box.closest(".item")?.classList.remove("dimmed");
-    localStorage.removeItem(key);
-  });
+  if (confirm("Clear all checked items?")) {
+    localStorage.clear();
+    location.reload();
+  }
 }
 
-document.addEventListener("DOMContentLoaded", () => {
-  normalizeLabelsForIndent(); // sets up hanging indentation spans
-  applySavedState(); // restores and wires persistence
-});
+document.addEventListener("DOMContentLoaded", applySavedState);
